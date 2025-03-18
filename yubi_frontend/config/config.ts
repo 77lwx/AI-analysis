@@ -73,7 +73,7 @@ export default defineConfig({
    * @name layout 插件
    * @doc https://umijs.org/docs/max/layout-menu
    */
-  title: '鱼智能 BI',
+  title: 'lwx BI',
   layout: {
     locale: true,
     ...defaultSettings,
@@ -130,7 +130,7 @@ export default defineConfig({
     {
       requestLibPath: "import { request } from '@umijs/max'",
       // 或者使用在线的版本
-      schemaPath: "http://localhost:8080/api/v2/api-docs",
+      schemaPath: "http://limit.asia:8080/api/v2/api-docs",
       projectName: 'yubi',
       // schemaPath: join(__dirname, 'oneapi.json'),
       mock: false,

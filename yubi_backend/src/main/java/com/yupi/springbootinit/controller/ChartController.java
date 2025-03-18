@@ -327,6 +327,7 @@ public class ChartController {
         chart.setGenChart(genChart);
         chart.setGenResult(genResult);
         chart.setUserId(loginUser.getId());
+        chart.setStatus("succeed");
         boolean save = chartService.save(chart);
         ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "数据保存失败");
 

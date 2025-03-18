@@ -41,7 +41,7 @@ const Login: React.FC = () => {
       flushSync(() => {
         setInitialState((s) => ({
           ...s,
-          currentUser: userInfo,
+          currentUser: userInfo.data,
         }));
       });
     }
@@ -88,8 +88,8 @@ const Login: React.FC = () => {
           logo={<img alt="logo" src="/logo.svg" />}
           title="智能 BI"
           subTitle={
-            <a href="https://yupi.icu" target="_blank">
-              编程导航知识星球的原创项目
+            <a href="https://baidu.com" target="_blank">
+              lwx的智能BI系统
             </a>
           }
           onFinish={async (values) => {

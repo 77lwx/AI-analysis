@@ -3,8 +3,11 @@ import { UploadOutlined } from '@ant-design/icons';
 import { Button, Card, Form, Input, message, Select, Space, Upload } from 'antd';
 import TextArea from 'antd/es/input/TextArea';
 import React, { useState } from 'react';
-import { genChartByAiAsyncMqUsingPost, genChartByAiAsyncUsingPost, genChartByAiUsingPost } from '@/services/yubi/chartController';
+import {  genChartByAiAsyncUsingPost } from '@/services/yubi/chartController';
 import { useForm } from 'antd/es/form/Form';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+
 
 /**
  * 添加图表页面
@@ -45,6 +48,36 @@ const AddChartAsync: React.FC = () => {
     }
     setSubmitting(false);
   };
+
+/**
+ * 下载测试用例文件
+ */
+const downloadTestCaseFile = () => {
+  // 创建固定内容的数据
+  const data = [
+    ['日期', '人数'],
+    ['第一天', 10],
+    ['第二天', 20],
+    ['第三天', 30],
+  ];
+
+  // 创建工作表
+  const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+  // 创建工作簿
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, '测试用例');
+
+  // 导出为二进制数据
+  const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+
+  // 转换为 Blob 对象
+  const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+
+  // 使用 FileSaver.js 触发下载
+  saveAs(blob, '测试用例文件.xlsx');
+};
+
 
   return (
     <div className="add-chart-async">
@@ -94,6 +127,7 @@ const AddChartAsync: React.FC = () => {
                 提交
               </Button>
               <Button htmlType="reset">重置</Button>
+              <Button onClick={downloadTestCaseFile}>下载测试用例文件</Button>
             </Space>
           </Form.Item>
         </Form>

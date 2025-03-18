@@ -101,3 +101,11 @@ yuapi:
     access-key: 6pardyisek7wjh1egj8wjmus590r7wh4
     secret-key: d299lrb6uk6fejy3iw0vqcr3urfc9vup
 
+#腾讯云deepseek
+tencent:
+  deepseek:
+    client:
+      secret-id: AKIDsjPAj5CC0Zv22oMfkcGfpnX3hAaoxwhD
+      secret-key: JNCoBJDsIJ6dw0yhCSTGo8OUM0ShhSzu
+
+
