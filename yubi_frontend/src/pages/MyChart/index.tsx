@@ -112,11 +112,7 @@ const MyChartPage: React.FC = () => {
   return (
     <div className="my-chart-page">
       {/* 引入搜索框 */}
-      <div>
-        {/* 
-          当用户点击搜索按钮触发 一定要把新设置的搜索条件初始化，要把页面切回到第一页;
-          如果用户在第二页,输入了一个新的搜索关键词,应该重新展示第一页,而不是还在搜第二页的内容
-        */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
         <Search placeholder="请输入图表名称" enterButton loading={loading} onSearch={(value) => {
           // 设置搜索条件
           setSearchParams({
@@ -126,6 +122,7 @@ const MyChartPage: React.FC = () => {
             name: value,
           })
         }} />
+        <Button style={{ marginLeft: 16 }} onClick={loadData}>刷新图表</Button>
       </div>
       <div className='margin-16' />
       <List
