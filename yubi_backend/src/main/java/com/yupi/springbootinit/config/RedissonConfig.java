@@ -20,7 +20,7 @@ public class RedissonConfig {
 
     private Integer port;
     // 如果redis默认没有密码，则不用写
-    //private String password;
+    private String password;
 
     // spring启动时，会自动创建一个RedissonClient对象
     @Bean
@@ -34,7 +34,7 @@ public class RedissonConfig {
                 // 设置redis的地址
                 .setAddress("redis://" + host + ":" + port);
         // 设置redis的密码(redis有密码才设置)
-               // .setPassword(password);
+//                .setPassword(password);
 
         // 2.创建Redisson实例
         RedissonClient redisson = Redisson.create(config);

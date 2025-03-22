@@ -12,14 +12,6 @@ import com.alibaba.dashscope.utils.JsonUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.tencentcloudapi.common.AbstractModel;
-
-import com.tencentcloudapi.common.exception.TencentCloudSDKException;
-import com.tencentcloudapi.lkeap.v20240522.LkeapClient;
-import com.tencentcloudapi.lkeap.v20240522.models.ChatCompletionsRequest;
-import com.tencentcloudapi.lkeap.v20240522.models.ChatCompletionsResponse;
-import com.yupi.springbootinit.common.ErrorCode;
-import com.yupi.springbootinit.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import javax.annotation.Resource;

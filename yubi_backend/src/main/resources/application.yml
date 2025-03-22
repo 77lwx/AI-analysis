@@ -27,16 +27,7 @@ spring:
     database: 1
     host: localhost
     port: 6379
-    #password: 123456
-
-
-
-   # Elasticsearch 配置
-  # todo 需替换配置，然后取消注释
-#  elasticsearch:
-#    uris: http://localhost:9200
-#    username: root
-#    password: 123456
+#    password: pjh123456
   # 文件上传
   servlet:
     multipart:
@@ -66,46 +57,6 @@ mybatis-plus:
       logic-delete-value: 1 # 逻辑已删除值（默认为 1）
       logic-not-delete-value: 0 # 逻辑未删除值（默认为 0）
 
-# 微信相关
-wx:
-  # 微信公众平台
-  # todo 需替换配置
-  mp:
-    token: xxx
-    aesKey: xxx
-    appId: xxx
-    secret: xxx
-    config-storage:
-      http-client-type: HttpClient
-      key-prefix: wx
-      redis:
-        host: 127.0.0.1
-        port: 6379
-      type: Memory
-  # 微信开放平台
-  # todo 需替换配置
-  open:
-    appId: xxx
-    appSecret: xxx
-# 对象存储
-# todo 需替换配置
-cos:
-  client:
-    accessKey: xxx
-    secretKey: xxx
-    region: xxx
-    bucket: xxx
-#鱼聪明AI
-yuapi:
-  client:
-    access-key: 6pardyisek7wjh1egj8wjmus590r7wh4
-    secret-key: d299lrb6uk6fejy3iw0vqcr3urfc9vup
 
-#腾讯云deepseek
-tencent:
-  deepseek:
-    client:
-      secret-id: AKIDsjPAj5CC0Zv22oMfkcGfpnX3hAaoxwhD
-      secret-key: JNCoBJDsIJ6dw0yhCSTGo8OUM0ShhSzu
 
 

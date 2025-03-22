@@ -144,7 +144,6 @@ const Login: React.FC = () => {
               marginBottom: 24,
             }}
           >
-            <Link to="/user/register">注册</Link>
           </div>
         </LoginForm>
       </div>

@@ -1,9 +1,11 @@
-import { listMyChartByPageUsingPost } from '@/services/yubi/chartController';
+import { listMyChartByPageUsingPost, updateFalseChartUsingPost } from '@/services/yubi/chartController';
 import { useModel } from '@@/exports';
 import { Avatar, Card, List, message, Result } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import React, { useEffect, useState } from 'react';
 import Search from "antd/es/input/Search";
+import { Button } from 'antd';
+import { request } from 'umi'; // 假设你使用 umi 的 request 方法
 
 /**
  * 我的图表页面
@@ -63,130 +65,184 @@ const MyChartPage: React.FC = () => {
   };
 
 
-    useEffect(() => {
-      loadData();
-    }, [searchParams]);
 
-    return (
-      <div className="my-chart-page">
-        {/* 引入搜索框 */}
-        <div>
-          {/* 
+ 
+
+  const handleRetry = async (item) => {
+    message.success('图表重新生成中，请耐心等待，成功生成后会自动刷新页面');
+    try {
+      // 构造请求参数
+      const chartAddRequest = {
+        name: item.name,
+        goal: item.goal,
+        chartType: item.chartType,
+        id: item.id,
+        chartData: item.chartData,
+      };
+  
+      // 调用后端 API
+      const res = await request('/api/chart/gen/updateFalseChart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json', // 明确指定 Content-Type
+        },
+        data: {
+          ...chartAddRequest,
+          id: item.id, // 将 id 作为请求体的一部分
+        },
+      });
+  
+      if (res.code === 0) {
+        message.success('图表重新生成成功');
+        // 如果需要刷新数据，可以重新加载数据
+        loadData();
+      } else {
+        message.error('图表重新生成失败：' + res.message);
+      }
+    } catch (e) {
+      message.error('请求失败：' + e.message);
+    }
+  };
+
+
+  useEffect(() => {
+    loadData();
+  }, [searchParams]);
+
+  return (
+    <div className="my-chart-page">
+      {/* 引入搜索框 */}
+      <div>
+        {/* 
           当用户点击搜索按钮触发 一定要把新设置的搜索条件初始化，要把页面切回到第一页;
           如果用户在第二页,输入了一个新的搜索关键词,应该重新展示第一页,而不是还在搜第二页的内容
         */}
-          <Search placeholder="请输入图表名称" enterButton loading={loading} onSearch={(value) => {
-            // 设置搜索条件
-            setSearchParams({
-              // 原始搜索条件
-              ...initSearchParams,
-              // 搜索词
-              name: value,
-            })
-          }} />
-        </div>
-        <div className='margin-16' />
-        <List
-          /*
-            栅格间隔16像素;xs屏幕<576px,栅格数1;
-            sm屏幕≥576px，栅格数1;md屏幕≥768px,栅格数1;
-            lg屏幕≥992px,栅格数2;xl屏幕≥1200px,栅格数2;
-            xxl屏幕≥1600px,栅格数2
-          */
-          grid={{
-            gutter: 16,
-            xs: 1,
-            sm: 1,
-            md: 1,
-            lg: 2,
-            xl: 2,
-            xxl: 2,
-          }}
-          pagination={{
-            /*
-              page第几页，pageSize每页显示多少条;
-              当用户点击这个分页组件,切换分页时,这个组件就会去触发onChange方法,会改变咱们现在这个页面的搜索条件
-            */
-            onChange: (page, pageSize) => {
-              // 当切换分页，在当前搜索条件的基础上，把页数调整为当前的页数
-              setSearchParams({
-                ...searchParams,
-                current: page,
-                pageSize,
-              })
-            },
-            // 显示当前页数
-            current: searchParams.current,
-            // 页面参数改成自己的
-            pageSize: searchParams.pageSize,
-            // 总数设置成自己的
-            total: total,
-          }}
-          // 设置成我们的加载状态
-          loading={loading}
-          dataSource={chartList}
-          renderItem={(item) => (
-            <List.Item key={item.id}>
-              {/* 用卡片包裹 */}
-              <Card style={{ width: '100%' }}>
-                <List.Item.Meta
-                  // 把当前登录用户信息的头像展示出来
-                  avatar={<Avatar src={currentUser && currentUser.userAvatar} />}
-                  title={item.name}
-                  description={item.chartType ? '图表类型：' + item.chartType : undefined}
-                />
-
-
-                <>
-                  {
-                    // 当状态（item.status）为'wait'时，显示待生成的结果组件
-                    item.status === 'wait' && <>
-                      <Result
-                        // 状态为警告
-                        status="warning"
-                        title="待生成"
-                        // 子标题显示执行消息，如果执行消息为空，则显示'当前图表生成队列繁忙，请耐心等候'
-                        subTitle={item.execMessage ?? '当前图表生成队列繁忙，请耐心等候'}
-                      />
-                    </>
-                  }
-                  {
-                    item.status === 'running' && <>
-                      <Result
-                        // 状态为信息
-                        status="info"
-                        title="图表生成中"
-                        // 子标题显示执行消息
-                        subTitle={item.execMessage}
-                      />
-                    </>
-                  }
-                  {
-                    // 当状态（item.status）为'succeed'时，显示生成的图表
-                    item.status === 'succeed' && <>
-                      <div style={{ marginBottom: 16 }} />
-                      <p>{'分析目标：' + item.goal}</p>
-                      <div style={{ marginBottom: 16 }} />
-                      <ReactECharts option={item.genChart && JSON.parse(item.genChart)} />
-                    </>
-                  }
-                  {
-                    // 当状态（item.status）为'failed'时，显示生成失败的结果组件
-                    item.status === 'failed' && <>
-                      <Result
-                        status="error"
-                        title="图表生成失败"
-                        subTitle={item.execMessage}
-                      />
-                    </>
-                  }
-                </>
-
-              </Card>
-            </List.Item>
-          )}
-        />
+        <Search placeholder="请输入图表名称" enterButton loading={loading} onSearch={(value) => {
+          // 设置搜索条件
+          setSearchParams({
+            // 原始搜索条件
+            ...initSearchParams,
+            // 搜索词
+            name: value,
+          })
+        }} />
       </div>
-    );
-  };
-  export default MyChartPage;
+      <div className='margin-16' />
+      <List
+        /*
+          栅格间隔16像素;xs屏幕<576px,栅格数1;
+          sm屏幕≥576px，栅格数1;md屏幕≥768px,栅格数1;
+          lg屏幕≥992px,栅格数2;xl屏幕≥1200px,栅格数2;
+          xxl屏幕≥1600px,栅格数2
+        */
+        grid={{
+          gutter: 16,
+          xs: 1,
+          sm: 1,
+          md: 1,
+          lg: 2,
+          xl: 2,
+          xxl: 2,
+        }}
+        pagination={{
+          /*
+            page第几页，pageSize每页显示多少条;
+            当用户点击这个分页组件,切换分页时,这个组件就会去触发onChange方法,会改变咱们现在这个页面的搜索条件
+          */
+          onChange: (page, pageSize) => {
+            // 当切换分页，在当前搜索条件的基础上，把页数调整为当前的页数
+            setSearchParams({
+              ...searchParams,
+              current: page,
+              pageSize,
+            })
+          },
+          // 显示当前页数
+          current: searchParams.current,
+          // 页面参数改成自己的
+          pageSize: searchParams.pageSize,
+          // 总数设置成自己的
+          total: total,
+        }}
+        // 设置成我们的加载状态
+        loading={loading}
+        dataSource={chartList}
+        renderItem={(item) => (
+          <List.Item key={item.id}>
+            {/* 用卡片包裹 */}
+            <Card style={{ width: '100%' }}>
+              <List.Item.Meta
+                // 把当前登录用户信息的头像展示出来
+                avatar={<Avatar src={currentUser && currentUser.userAvatar} />}
+                title={item.name}
+                description={item.chartType ? '图表类型：' + item.chartType : undefined}
+              />
+
+
+              <>
+                {
+                  // 当状态（item.status）为'wait'时，显示待生成的结果组件
+                  item.status === 'wait' && <>
+                    <Result
+                      // 状态为警告
+                      status="warning"
+                      title="待生成"
+                      // 子标题显示执行消息，如果执行消息为空，则显示'当前图表生成队列繁忙，请耐心等候'
+                      subTitle={item.execMessage ?? '当前图表生成队列繁忙，请耐心等候'}
+                    />
+                  </>
+                }
+                {
+                  item.status === 'running' && <>
+                    <Result
+                      // 状态为信息
+                      status="info"
+                      title="图表生成中"
+                      // 子标题显示执行消息
+                      subTitle={item.execMessage}
+                    />
+                  </>
+                }
+                {
+                  // 当状态（item.status）为'succeed'时，显示生成的图表
+                  item.status === 'succeed' && <>
+                    <div style={{ marginBottom: 16 }} />
+                    <p>{'分析目标：' + item.goal}</p>
+                    <div style={{ marginBottom: 16 }} />
+                    <p>{'分析结论：' + item.genResult}</p>
+                    <ReactECharts option={item.genChart && JSON.parse(item.genChart)} />
+                  </>
+                }
+                {
+                  // 当状态（item.status）为'failed'时，显示生成失败的结果组件
+                  item.status === 'failed' && <>
+                    <Result
+                      status="error"
+                      title="图表生成失败"
+                      subTitle={item.execMessage}
+                    />
+                  </>
+                }
+                {
+                  item.status === 'failed' && (
+                    <Button
+                      type="primary"
+                      onClick={async () => {
+                        await handleRetry(item); // 等待重新生成逻辑完成
+                        loadData(); // 重新加载数据
+                      }}
+                    >
+                      重新生成
+                    </Button>
+                  )
+                }
+              </>
+
+            </Card>
+          </List.Item>
+        )}
+      />
+    </div>
+  );
+};
+export default MyChartPage;
