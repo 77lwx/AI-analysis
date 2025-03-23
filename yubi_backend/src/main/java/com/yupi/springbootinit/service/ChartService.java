@@ -7,5 +7,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  *
  */
 public interface ChartService extends IService<Chart> {
-
+    void handleChartUpdateError(long chartId, String message);
 }

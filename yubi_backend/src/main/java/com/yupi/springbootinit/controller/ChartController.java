@@ -1,6 +1,9 @@
 package com.yupi.springbootinit.controller;
 
+import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.io.FileUtil;
+
+import cn.hutool.core.lang.Singleton;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yupi.springbootinit.annotation.AuthCheck;
@@ -24,19 +27,23 @@ import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.ExcelUtils;
 import com.yupi.springbootinit.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
-import net.bytebuddy.implementation.bytecode.Throw;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.scripting.support.ResourceScriptSource;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.*;
 
 /**
  * 帖子接口
@@ -53,6 +60,9 @@ public class ChartController {
     private ChartService chartService;
 
     @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
     private UserService userService;
 
     @Resource
@@ -67,6 +77,11 @@ public class ChartController {
 
     @Resource
     private BiMessageProducer biMessageProducer;
+
+    private static final String EDITING = "edit:%s";
+
+    private final static String EDIT_LUA_PATH = "lua/editing.lua";
+
 
 
     // region 增删改查
@@ -248,6 +263,24 @@ public class ChartController {
     @PostMapping("/gen")
     public BaseResponse<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
                                                  GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+
+        String editKey = String.format(EDITING, loginUser.getId());
+        DefaultRedisScript<Boolean> buildLuaScript = Singleton.get(EDIT_LUA_PATH, () -> {
+            DefaultRedisScript<Boolean> redisScript = new DefaultRedisScript<>();
+            redisScript.setScriptSource(new ResourceScriptSource(new ClassPathResource(EDIT_LUA_PATH)));
+            redisScript.setResultType(Boolean.class);
+            return redisScript;
+        });
+
+        Boolean luaResult = stringRedisTemplate.execute(
+                buildLuaScript,
+                Collections.singletonList(editKey)
+        );
+
+        if(!luaResult){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户已达到最大任务数");
+        }
 
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
@@ -269,11 +302,8 @@ public class ChartController {
         String suffix = FileUtil.getSuffix(originalFilename);
         ThrowUtils.throwIf(!witheList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
 
-        User loginUser = userService.getLoginUser(request);
-
         // 限流判断，每个用户一个限流器
         redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
-
 
         //指定一个模型id，写死
         long modelId = 1825519621357690882L;
@@ -299,9 +329,9 @@ public class ChartController {
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
 
-
         //拿到了返回结果
         String result = aiManager.doChat(modelId, userInput.toString());
+        stringRedisTemplate.opsForValue().increment(editKey, -1);
 
         //对返回的结果以五个中括号分隔
         String[] split = result.split("【【【【【");
@@ -348,6 +378,10 @@ public class ChartController {
     @PostMapping("/gen/updateFalseChart")
     public BaseResponse<BiResponse> updateFalseChart(@RequestBody ChartAgainRequest chartAgainRequest,
                                                      HttpServletRequest request) {
+
+        User loginUser = userService.getLoginUser(request);
+
+
         Chart oldChart = chartService.getById(chartAgainRequest.getId());
         if (!"failed".equals(oldChart.getStatus())) {
             //没有生成失败，无法重新生成
@@ -358,7 +392,6 @@ public class ChartController {
         String goal = chartAgainRequest.getGoal();
         String chartType = chartAgainRequest.getChartType();
         String csvData = chartAgainRequest.getChartData();
-        User loginUser = userService.getLoginUser(request);
         long modelId = 1825519621357690882L;
         StringBuilder userInput = new StringBuilder();
         userInput.append("分析需求:").append("\n");
@@ -372,6 +405,8 @@ public class ChartController {
         userInput.append(csvData).append("\n");
         //拿到了返回结果
         String result = aiManager.doChat(modelId, userInput.toString());
+
+
         //对返回的结果以五个中括号分隔
         String[] split = result.split("【【【【【");
         String genChart = split[1];
@@ -405,9 +440,29 @@ public class ChartController {
     public BaseResponse<BiResponse> genChartByAiAsync(@RequestPart("file") MultipartFile multipartFile,
                                                       GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
 
+
+        User loginUser = userService.getLoginUser(request);
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
         String chartType = genChartByAiRequest.getChartType();
+
+        String editKey = String.format(EDITING, loginUser.getId());
+        DefaultRedisScript<Boolean> buildLuaScript = Singleton.get(EDIT_LUA_PATH, () -> {
+            DefaultRedisScript<Boolean> redisScript = new DefaultRedisScript<>();
+            redisScript.setScriptSource(new ResourceScriptSource(new ClassPathResource(EDIT_LUA_PATH)));
+            redisScript.setResultType(Boolean.class);
+            return redisScript;
+        });
+
+        Boolean luaResult = stringRedisTemplate.execute(
+                buildLuaScript,
+                Collections.singletonList(editKey)
+        );
+
+        if(!luaResult){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户已达到最大任务数");
+        }
+
 
         //校验
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
@@ -425,7 +480,6 @@ public class ChartController {
         String suffix = FileUtil.getSuffix(originalFilename);
         ThrowUtils.throwIf(!witheList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
 
-        User loginUser = userService.getLoginUser(request);
 
         // 限流判断，每个用户一个限流器
         redisLimiterManager.doRateLimit("genChartByAiAsync_" + loginUser.getId());
@@ -465,48 +519,49 @@ public class ChartController {
         boolean save = chartService.save(chart);
         ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "数据保存失败");
 
-        //异步执行任务
+        // 异步执行任务
         CompletableFuture.runAsync(() -> {
-            // 先修改图表任务状态为 “执行中”。
-            // 等执行成功后，修改为 “已完成”、保存执行结果；
-            // 执行失败后，状态修改为 “失败”，记录任务失败信息。(为了防止同一个任务被多次执行)
-            Chart updateChart = new Chart();
-            updateChart.setId(chart.getId());
-            //将任务设置为执行中
-            updateChart.setStatus("running");
-            boolean b = chartService.updateById(updateChart);
-            // 如果提交失败(一般情况下,更新失败可能意味着你的数据库出问题了)
-            if (!b) {
-                handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
-                return;
-            }
-            //执行任务
-            //拿到了返回结果
-            String result = aiManager.doChat(modelId, userInput.toString());
-            //对返回的结果以五个中括号分隔
-            String[] split = result.split("【【【【【");
-            if (split.length < 3) {
-                handleChartUpdateError(chart.getId(), "AI 生成错误");
-                return;
-            }
-            String genChart = split[1];
-            String genResult = split[2];
-            // 调用AI得到结果之后,再更新一次
-            Chart updateChartResult = new Chart();
-            updateChartResult.setId(chart.getId());
-            updateChartResult.setGenChart(genChart);
-            updateChartResult.setGenResult(genResult);
-            updateChartResult.setStatus("succeed");
-            //最后执行更新逻辑
-            boolean updateResult = chartService.updateById(updateChartResult);
-            //如果更新失败
-            if (!updateResult) {
-                handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
+            // 使用 CompletableFuture 执行 AI 任务，并设置超时时间
+            CompletableFuture<String> aiFuture = CompletableFuture.supplyAsync(() -> {
+                return aiManager.doChat(modelId, userInput.toString());
+            }, threadPoolExecutor);
+
+            try {
+                // 设置超时时间为 30 秒
+                String result = aiFuture.get(30, TimeUnit.SECONDS);
+                stringRedisTemplate.opsForValue().increment(editKey, -1);
+                // 对返回的结果以五个中括号分隔
+                String[] split = result.split("【【【【【");
+                if (split.length < 3) {
+                handleChartUpdateError(chart.getId(), "图表分析内容失败，请重新生成");
+                    return;
+                }
+                String genChart = split[1];
+                String genResult = split[2];
+                // 调用AI得到结果之后,再更新一次
+                Chart updateChartResult = new Chart();
+                updateChartResult.setId(chart.getId());
+                updateChartResult.setGenChart(genChart);
+                updateChartResult.setGenResult(genResult);
+                updateChartResult.setStatus("succeed");
+                boolean updateResult = chartService.updateById(updateChartResult);
+                if (!updateResult) {
+                    chartService.handleChartUpdateError(chart.getId(), "图表生成异常");
+                }
+            } catch (TimeoutException e) {
+                // 超时处理逻辑
+                aiFuture.cancel(true); // 取消任务
+                chartService.handleChartUpdateError(chart.getId(), "图表生成超时");
+                stringRedisTemplate.opsForValue().increment(editKey, -1);
+            } catch (InterruptedException | ExecutionException e) {
+                chartService.handleChartUpdateError(chart.getId(), "图表获取数据内容失败");
+                stringRedisTemplate.opsForValue().increment(editKey, -1);
             }
         }, threadPoolExecutor);
-        //封装BiResponse,优先给前端用户返回任务信息就行
+
+        // 封装 BiResponse, 优先给前端用户返回任务信息
         BiResponse biResponse = new BiResponse();
-        biResponse.setChartId(loginUser.getId());
+        biResponse.setChartId(chart.getId()); // 返回图表的 ID，而不是用户 ID
         return ResultUtils.success(biResponse);
     }
 
@@ -523,9 +578,28 @@ public class ChartController {
     public BaseResponse<BiResponse> genChartByAiAsyncMq(@RequestPart("file") MultipartFile multipartFile,
                                                         GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
 
+        User loginUser = userService.getLoginUser(request);
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
         String chartType = genChartByAiRequest.getChartType();
+
+        String editKey = String.format(EDITING, loginUser.getId());
+        DefaultRedisScript<Boolean> buildLuaScript = Singleton.get(EDIT_LUA_PATH, () -> {
+            DefaultRedisScript<Boolean> redisScript = new DefaultRedisScript<>();
+            redisScript.setScriptSource(new ResourceScriptSource(new ClassPathResource(EDIT_LUA_PATH)));
+            redisScript.setResultType(Boolean.class);
+            return redisScript;
+        });
+
+        Boolean luaResult = stringRedisTemplate.execute(
+                buildLuaScript,
+                Collections.singletonList(editKey)
+        );
+
+        if(!luaResult){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户已达到最大任务数");
+        }
+
 
         //校验
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
@@ -544,7 +618,6 @@ public class ChartController {
         String suffix = FileUtil.getSuffix(originalFilename);
         ThrowUtils.throwIf(!witheList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
 
-        User loginUser = userService.getLoginUser(request);
 
         // 限流判断，每个用户一个限流器
         redisLimiterManager.doRateLimit("genChartByAiAsync_" + loginUser.getId());

@@ -215,7 +215,7 @@ const MyChartPage: React.FC = () => {
                   item.status === 'failed' && <>
                     <Result
                       status="error"
-                      title="图表生成失败"
+                      title={item.genResult}
                       subTitle={item.execMessage}
                     />
                   </>

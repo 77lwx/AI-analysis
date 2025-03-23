@@ -6,12 +6,15 @@ import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.manager.AiManager;
 import com.yupi.springbootinit.model.entity.Chart;
+import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.service.ChartService;
+import com.yupi.springbootinit.service.UserService;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
@@ -24,12 +27,17 @@ import javax.annotation.Resource;
 @Slf4j
 public class BiMessageConsumer {
 
-
     @Resource
     private ChartService chartService;
 
     @Resource
     private AiManager aiManager;
+
+    @Resource
+    private UserService userService;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 接收消息的方法
@@ -74,6 +82,11 @@ public class BiMessageConsumer {
         //执行任务
         //拿到了返回结果
         String result = aiManager.doChat(CommonConstant.BI_MODEL_ID, buildUserInput(chart));
+        Long userId = chart.getUserId();
+        User user = userService.getById(userId);
+
+        stringRedisTemplate.opsForValue().increment(String.format("edit:%s",userId), -1);
+
         //对返回的结果以五个中括号分隔
         String[] split=result.split("【【【【【");
         if (split.length < 3) {

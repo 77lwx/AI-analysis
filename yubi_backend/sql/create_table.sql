@@ -52,3 +52,7 @@ create table chart_1826609872530739201
     日期   int null,
     用户数 int null
 );
+
+ALTER TABLE user
+    ADD COLUMN editingChartCount INT DEFAULT 0 NOT NULL COMMENT '用户正在编辑的图表数目'
+        AFTER isDelete;

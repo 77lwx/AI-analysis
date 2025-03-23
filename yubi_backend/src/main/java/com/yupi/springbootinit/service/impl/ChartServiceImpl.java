@@ -16,6 +16,19 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     implements ChartService{
 
 
+    /**
+     * 处理图表更新错误
+     *
+     * @param chartId 图表 ID
+     * @param message 错误信息
+     */
+    public void handleChartUpdateError(long chartId, String message) {
+        Chart oldChart = this.getById(chartId);
+        oldChart.setStatus("failed");
+        oldChart.setGenResult(message);
+        this.updateById(oldChart);
+    }
+
 }
 
 

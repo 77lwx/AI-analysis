@@ -54,11 +54,14 @@ public class User implements Serializable {
      */
     private Date updateTime;
 
+
     /**
      * 是否删除
      */
     @TableLogic
     private Integer isDelete;
+
+
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
